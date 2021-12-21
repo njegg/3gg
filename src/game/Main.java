@@ -100,7 +100,8 @@ public class Main implements Drawing {
 
         view.setTransformation(Transformation.translation(Vector.vec(-mapSize/2, -mapSize/2)));
 
-        Vector vHit, hHit;
+        Vector vHit = new Vector(2*mapSize, 2*mapSize);
+        Vector hHit = new Vector(2*mapSize, 2*mapSize);
 
         int mapX = 0, mapY = 0, depth;
         double x, y, xOffset, yOffset, rayX, rayY;
@@ -108,73 +109,91 @@ public class Main implements Drawing {
         double tan = Numeric.tanT(player.angle);
         double ctan = 1 / tan;
 
+        double mody64 = Numeric.mod(player.p.y, gridSize);
+
         for (int i = 0; i < 1; i++) {
-            /* vertical rays */
-
             if (player.angle < 0.5) { // looking up
-                rayY = 64 - Numeric.mod(player.p.y, 64);
-                yOffset = 64;
+                rayY = gridSize - mody64;
+                yOffset = gridSize;
             } else { // looking down
-                rayY = -Numeric.mod(player.p.y, 64);
-                yOffset = -64;
+                rayY = - mody64;
+                yOffset = - gridSize;
             }
-
             rayX = rayY * ctan;
-            xOffset = rayX;
+
+            xOffset = yOffset * ctan;
+
 
             depth = 0;
             if (player.angle == 0 || player.angle == 0.5) depth = 8;
 
             while (depth < 8) {
-                mapX = (int) (rayX / gridSize);
-                mapY = (int) (rayY / gridSize);
+                mapX = (int) ((rayX + player.p.x) / gridSize);
+                mapY = (int) ((rayY + player.p.y) / gridSize); //  - (player.angle < 0.5 ? 0 : 1);
+
+                System.out.println(rayX + "   " + rayY);
 
                 if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid && map[mapY][mapX] == 1) {
                     break;
+                } else {
+                    rayY += yOffset;
+                    rayX += xOffset;
+                    depth++;
                 }
-
-                rayY += yOffset;
-                rayX += xOffset;
-                depth++;
             }
 
-            vHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
+            if (depth < 9) {
+                view.setFill(Color.CORNFLOWERBLUE);
+                vHit = Vector.vec(rayX + player.p.x, player.p.y + rayY);
+//                view.fillCircleCentered(vHit, 5);
+            }
 
             /*  */
 
-            if (player.angle < 0.25 || player.angle > 0.75) { // looking up
-                rayX = 64 - Numeric.mod(player.p.x, 64);
-                xOffset = 64;
-            } else { // looking down
-                rayX = -Numeric.mod(player.p.x, 64);
-                xOffset = -64;
-            }
+            mody64 = Numeric.mod(player.p.x, gridSize);
 
+            if (player.angle < 0.25 || player.angle > 0.75) { // looking up
+                rayX = gridSize - mody64;
+                xOffset = gridSize;
+            } else { // looking down
+                rayX = - mody64;
+                xOffset = - gridSize;
+            }
             rayY = rayX * tan;
-            xOffset = rayX;
+
+            yOffset = xOffset * tan;
+
 
             depth = 0;
             if (player.angle == 0.25 || player.angle == 0.75) depth = 8;
 
             while (depth < 8) {
-                mapX = (int) (rayX / gridSize);
-                mapY = (int) (rayY / gridSize);
+                mapX = (int) ((rayX + player.p.x) / gridSize);
+                mapY = (int) ((rayY + player.p.y) / gridSize); //  - (player.angle < 0.5 ? 0 : 1);
 
                 if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid && map[mapY][mapX] == 1) {
                     break;
+                } else {
+                    rayY += yOffset;
+                    rayX += xOffset;
+                    depth++;
                 }
-
-                System.out.println(depth);
-                rayY += yOffset;
-                rayX += xOffset;
-                depth++;
             }
 
-            hHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
+            if (depth < 9) {
+                view.setFill(Color.CORNFLOWERBLUE);
+                hHit = Vector.vec(rayX + player.p.x, player.p.y + rayY);
+//                view.fillCircleCentered(hHit, 5);
+            }
+
+            double hDist = hHit.distanceTo(player.p);
+            double vDist = vHit.distanceTo(player.p);
+
+            Vector ray = hDist < vDist ? hHit : vHit;
 
             view.setStroke(Color.RED);
-//            view.strokeLine(player.p, vHit);
-            view.strokeLine(player.p, hHit);
+            view.setFill(Color.CORNFLOWERBLUE);
+            view.strokeLine(player.p, ray);
 
         }
     }
