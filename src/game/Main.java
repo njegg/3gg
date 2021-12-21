@@ -34,7 +34,7 @@ public class Main implements Drawing {
     int gridSize = 64;
     int mapSize = 512;
 
-    Player player = new Player(Vector.vec(-2*gridSize, 0));
+    Player player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
 
     @GadgetDouble(max = 100)
     double speed = 1;
@@ -63,133 +63,237 @@ public class Main implements Drawing {
 
 
     public void drawMap(View view) {
-        Vector start = Vector.vec(-mapSize/2, -mapSize/2);
         view.setFill(Color.WHITE);
         view.setStroke(Color.GRAY);
         view.setLineWidth(1);
 
+        view.stateStore();
+
+        view.setTransformation(Transformation.translation(Vector.vec(-mapSize/2, -mapSize/2)));
 
         for (int i = 0; i < nGrid; i++) {
             for (int j = 0; j < nGrid; j++) {
                 if (map[i][j] == 1) {
                     view.fillRect(
-                            start.add(Vector.vec(j * gridSize, i * gridSize)),
+                            Vector.vec(j * gridSize, i * gridSize),
                             Vector.vec(gridSize, gridSize)
                     );
                 }
 
                 view.strokeRect(
-                        start.add(Vector.vec(j * gridSize, i * gridSize)),
+                        Vector.vec(j * gridSize, i * gridSize),
                         Vector.vec(gridSize, gridSize)
                 );
                 view.setFill(Color.RED);
-                view.fillText(String.format("%d,%d", j, i), start.add(Vector.vec(j * gridSize, i * gridSize)));
+                view.fillText(String.format("%d,%d", j, i), Vector.vec(j * gridSize, i * gridSize));
                 view.setFill(Color.WHITE);
             }
         }
+
+        view.stateRestore();
     }
 
     public void drawRejz(View view) {
-        view.setFill(Color.CORNFLOWERBLUE);
+        view.setStroke(Color.CORNFLOWERBLUE);
+
+        view.stateStore();
+
+        view.setTransformation(Transformation.translation(Vector.vec(-mapSize/2, -mapSize/2)));
 
         Vector vHit, hHit;
 
         int mapX = 0, mapY = 0, depth;
         double x, y, xOffset, yOffset, rayX, rayY;
 
-        // TODO use normal system, but translate view after rendering
-        double mapOffsetX = mapSize / 2 + player.p.x; // to convert coordinate systems
-        double mapOffsetY = mapSize / 2 + player.p.y;
-
         double tan = Numeric.tanT(player.angle);
         double ctan = 1 / tan;
 
         for (int i = 0; i < 1; i++) {
-
             /* vertical rays */
 
-            boolean up;
             if (player.angle < 0.5) { // looking up
-                up = true;
-                y = 64 - Numeric.mod(player.p.y , 64);
+                rayY = 64 - Numeric.mod(player.p.y, 64);
+                yOffset = 64;
             } else { // looking down
-                up = false;
-                y = -Numeric.mod(player.p.y, 64);
-                mapOffsetY -= gridSize;
+                rayY = -Numeric.mod(player.p.y, 64);
+                yOffset = -64;
             }
 
-            x = y * ctan;
+            rayX = rayY * ctan;
+            xOffset = rayX;
 
             depth = 0;
-            if  (player.angle == 0 || player.angle == 0.5) depth = 8;
+            if (player.angle == 0 || player.angle == 0.5) depth = 8;
 
-            yOffset = 64 * (up ? 1 : -1);
-
-            rayX = x;
-            rayY = y;
             while (depth < 8) {
-                mapX = (int)((rayX + mapOffsetX) / 64);
-                mapY = (int)((rayY + mapOffsetY) / 64);
+                mapX = (int) (rayX / gridSize);
+                mapY = (int) (rayY / gridSize);
 
-                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid) {
-                    if (map[mapY][mapX] == 1) {
-                        break;
-                    }
+                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid && map[mapY][mapX] == 1) {
+                    break;
                 }
 
                 rayY += yOffset;
-                rayX += rayY * ctan;
-
+                rayX += xOffset;
                 depth++;
             }
 
+            vHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
 
-            /* horisontal rays */
+            /*  */
 
-            boolean right;
-
-            if (player.angle < 0.25 || player.angle > 0.75) { // looking right
-                right = true;
-                x = 64 - Numeric.mod(player.p.x , 64);
-            } else {
-                right = false;
-                x = -1.0 * Numeric.mod(player.p.x, 64);
+            if (player.angle < 0.25 || player.angle > 0.75) { // looking up
+                rayX = 64 - Numeric.mod(player.p.x, 64);
+                xOffset = 64;
+            } else { // looking down
+                rayX = -Numeric.mod(player.p.x, 64);
+                xOffset = -64;
             }
 
-            y = x * tan;
+            rayY = rayX * tan;
+            xOffset = rayX;
 
             depth = 0;
-            if  (player.angle == 0.25 || player.angle == 0.75) depth = 8;
+            if (player.angle == 0.25 || player.angle == 0.75) depth = 8;
 
-            xOffset = 64 * (right ? 1 : -1);
-
-            rayX = x;
-            rayY = y;
             while (depth < 8) {
-                mapX = (int)((rayX + mapOffsetX) / 64);
-                mapY = (int)((rayY + mapOffsetY) / 64);
+                mapX = (int) (rayX / gridSize);
+                mapY = (int) (rayY / gridSize);
 
-                try {
-                    if (map[mapY][mapX] == 1) {
-                        break;
-                    }
-                } catch (IndexOutOfBoundsException e) {
-                    System.out.printf("%d %d\n", mapX, mapY);
+                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid && map[mapY][mapX] == 1) {
+                    break;
                 }
 
+                System.out.println(depth);
+                rayY += yOffset;
                 rayX += xOffset;
-                rayY += tan * rayX;
-
                 depth++;
-
             }
 
+            hHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
 
-            Vector hit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
-            view.fillCircleCentered(hit,  5);
+            view.setStroke(Color.RED);
+//            view.strokeLine(player.p, vHit);
+            view.strokeLine(player.p, hHit);
 
         }
     }
+
+//    public void drawRejzOld(View view) {
+//        view.setStroke(Color.CORNFLOWERBLUE);
+//
+//        view.stateStore();
+//
+//        view.setTransformation(Transformation.translation(Vector.vec(-mapSize/2, -mapSize/2)));
+//
+//        Vector vHit, hHit;
+//
+//        int mapX = 0, mapY = 0, depth;
+//        double x, y, xOffset, yOffset, rayX, rayY;
+//
+//        // TODO use normal system, but translate view after rendering
+//
+//        double tan = Numeric.tanT(player.angle);
+//        double ctan = 1 / tan;
+//
+//        for (int i = 0; i < 1; i++) {
+//
+//            /* vertical rays */
+//
+//            boolean up;
+//            if (player.angle < 0.5) { // looking up
+//                up = true;
+//                y = 64 - Numeric.mod(player.p.y , 64);
+//            } else { // looking down
+//                up = false;
+//                y = -Numeric.mod(player.p.y, 64);
+//                mapOffsetY -= gridSize;
+//            }
+//
+//            x = y * ctan;
+//
+//            depth = 0;
+//            if  (player.angle == 0 || player.angle == 0.5) depth = 8;
+//
+//            yOffset = 64 * (up ? 1 : -1);
+//
+//            rayX = x;
+//            rayY = y;
+//            while (depth < 8) {
+//                mapX = (int)((rayX + mapOffsetX) / gridSize);
+//                mapY = (int)((rayY + mapOffsetY) / gridSize);
+//
+//                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid) {
+//                    if (map[mapY][mapX] == 1) {
+//                        break;
+//                    }
+//                }
+//
+//                rayY += yOffset;
+//                rayX += rayY * ctan;
+//
+//                depth++;
+//            }
+//
+//            vHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
+//
+//
+//            /* horizontal rays */
+//
+//            boolean right;
+//
+//            if (player.angle < 0.25 || player.angle > 0.75) { // looking right
+//                right = true;
+//                x = 64 - Numeric.mod(player.p.x , 64);
+//            } else {
+//                right = false;
+//                x = -1.0 * Numeric.mod(player.p.x, 64);
+//                mapOffsetX -= gridSize;
+//            }
+//
+//            y = x * tan;
+//
+//            depth = 0;
+//            if  (player.angle == 0.25 || player.angle == 0.75) depth = 8;
+//
+//            xOffset = 64 * (right ? 1 : -1);
+//
+//            rayX = x;
+//            rayY = y;
+//            while (depth < 8) {
+//                mapX = (int)((rayX + mapOffsetX) / 64);
+//                mapY = (int)((rayY + mapOffsetY) / 64);
+//
+//                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid) {
+//                    if (map[mapY][mapX] == 1) {
+//                        break;
+//                    }
+//                }
+//
+//                rayX += xOffset;
+//                rayY += tan * rayX;
+//
+//                depth++;
+//
+////            }
+//
+//            hHit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
+//
+//            double distH = player.p.distanceTo(hHit);
+//            double distV = player.p.distanceTo(vHit);
+//
+//            Vector closestHit = distH < distV ? hHit : vHit;
+//
+////            view.strokeLine(player.p, vHit);
+////            view.setStroke(Color.RED);
+////            view.strokeLine(player.p, hHit);
+//
+//            view.strokeLine(player.p, closestHit);
+//
+//        }
+//
+//        view.stateRestore();
+//    }
 
 
     public static void main(String[] args) {
@@ -216,12 +320,16 @@ public class Main implements Drawing {
             player.v = Vector.vec(speed * isPressed, 0).rotate(player.angle);
         }
 
-        if (event.isKey(KeyCode.A)) {
-            player.toRotate = state.keyPressed(KeyCode.A) ? 1 : 0;
+//        if (event.isKey(KeyCode.A)) {
+        if (event.isKeyPress(KeyCode.A)) {
+//            player.toRotate = state.keyPressed(KeyCode.A) ? 1 : 0;
+            player.rotate(true);
         }
 
-        if (event.isKey(KeyCode.D)) {
-            player.toRotate = state.keyPressed(KeyCode.D) ? -1 : 0;
+//        if (event.isKey(KeyCode.D)) {
+        if (event.isKeyPress(KeyCode.D)) {
+//            player.toRotate = state.keyPressed(KeyCode.D) ? -1 : 0;
+            player.rotate(false);
         }
     }
 }
@@ -240,7 +348,11 @@ class Player {
 
     public void update() {
         p = p.add(v);
-        angle += toRotate * 0.005;
+//        angle += toRotate * 0.002;
+    }
+
+    public void rotate(boolean left) {
+        angle += 0.04 * (left ? 1 : -1);
         if (angle >= 1) angle = 0;
         if (angle <  0) angle = 1;
     }
