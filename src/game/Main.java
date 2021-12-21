@@ -50,8 +50,8 @@ public class Main implements Drawing {
         DrawingUtils.clear(view, Color.gray(0.125));
 
         drawMap(view);
-
         player.update();
+        drawRejz(view);
 
         view.setFill(Color.RED);
         view.setStroke(Color.RED);
@@ -59,7 +59,6 @@ public class Main implements Drawing {
 
         view.strokeLine(player.p, player.p.add(Vector.vec(10,  0).rotate(player.angle)));
         view.fillCircleCentered(player.p, 5);
-        view.fillCircleCentered(player.closest64y(), 5);
     }
 
 
@@ -83,15 +82,112 @@ public class Main implements Drawing {
                         start.add(Vector.vec(j * gridSize, i * gridSize)),
                         Vector.vec(gridSize, gridSize)
                 );
+                view.setFill(Color.RED);
+                view.fillText(String.format("%d,%d", j, i), start.add(Vector.vec(j * gridSize, i * gridSize)));
+                view.setFill(Color.WHITE);
             }
         }
     }
 
-    public void drawRejz() {
-        
-        double rayAngle = player.angle;
+    public void drawRejz(View view) {
+        view.setFill(Color.CORNFLOWERBLUE);
+
+        Vector vHit, hHit;
+
+        int mapX = 0, mapY = 0, depth;
+        double x, y, xOffset, yOffset, rayX, rayY;
+
+        // TODO use normal system, but translate view after rendering
+        double mapOffsetX = mapSize / 2 + player.p.x; // to convert coordinate systems
+        double mapOffsetY = mapSize / 2 + player.p.y;
+
+        double tan = Numeric.tanT(player.angle);
+        double ctan = 1 / tan;
 
         for (int i = 0; i < 1; i++) {
+
+            /* vertical rays */
+
+            boolean up;
+            if (player.angle < 0.5) { // looking up
+                up = true;
+                y = 64 - Numeric.mod(player.p.y , 64);
+            } else { // looking down
+                up = false;
+                y = -Numeric.mod(player.p.y, 64);
+                mapOffsetY -= gridSize;
+            }
+
+            x = y * ctan;
+
+            depth = 0;
+            if  (player.angle == 0 || player.angle == 0.5) depth = 8;
+
+            yOffset = 64 * (up ? 1 : -1);
+
+            rayX = x;
+            rayY = y;
+            while (depth < 8) {
+                mapX = (int)((rayX + mapOffsetX) / 64);
+                mapY = (int)((rayY + mapOffsetY) / 64);
+
+                if (mapY >= 0 && mapY < nGrid && mapX >= 0 && mapX < nGrid) {
+                    if (map[mapY][mapX] == 1) {
+                        break;
+                    }
+                }
+
+                rayY += yOffset;
+                rayX += rayY * ctan;
+
+                depth++;
+            }
+
+
+            /* horisontal rays */
+
+            boolean right;
+
+            if (player.angle < 0.25 || player.angle > 0.75) { // looking right
+                right = true;
+                x = 64 - Numeric.mod(player.p.x , 64);
+            } else {
+                right = false;
+                x = -1.0 * Numeric.mod(player.p.x, 64);
+            }
+
+            y = x * tan;
+
+            depth = 0;
+            if  (player.angle == 0.25 || player.angle == 0.75) depth = 8;
+
+            xOffset = 64 * (right ? 1 : -1);
+
+            rayX = x;
+            rayY = y;
+            while (depth < 8) {
+                mapX = (int)((rayX + mapOffsetX) / 64);
+                mapY = (int)((rayY + mapOffsetY) / 64);
+
+                try {
+                    if (map[mapY][mapX] == 1) {
+                        break;
+                    }
+                } catch (IndexOutOfBoundsException e) {
+                    System.out.printf("%d %d\n", mapX, mapY);
+                }
+
+                rayX += xOffset;
+                rayY += tan * rayX;
+
+                depth++;
+
+            }
+
+
+            Vector hit = Vector.vec(player.p.x + rayX, player.p.y + rayY);
+            view.fillCircleCentered(hit,  5);
+
         }
     }
 
@@ -149,21 +245,4 @@ class Player {
         if (angle <  0) angle = 1;
     }
 
-    public Vector closest64y() {
-        double y;
-        if (angle < 0.5) {
-            // looking up
-            y = 64 - Numeric.mod(p.y , 64);
-        } else {
-            // looking down
-            y = -Numeric.mod(p.y, 64);
-        }
-
-        double sin = Math.sin(angle*2*Math.PI);
-        double cos = Math.cos(angle*2*Math.PI);
-        double x = cos * (y / sin);
-
-
-        return Vector.vec(p.x + x, y + p.y);
-    }
 }
