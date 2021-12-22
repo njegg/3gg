@@ -9,12 +9,27 @@ import mars.drawingx.drawing.Drawing;
 import mars.drawingx.drawing.DrawingUtils;
 import mars.drawingx.drawing.View;
 import mars.drawingx.gadgets.annotations.GadgetDouble;
+import mars.drawingx.gadgets.annotations.GadgetDoubleLogarithmic;
+import mars.drawingx.gadgets.annotations.GadgetInteger;
 import mars.geometry.Transformation;
 import mars.geometry.Vector;
 import mars.input.InputEvent;
 import mars.input.InputState;
 import mars.utils.Numeric;
 
+/*
+ * TODO
+ *  fix:
+ *    fps
+ *    consistent screen
+ *  textures
+ *    doors
+ *  walking animation (sin/cos screen offset?)
+ *  particles:
+ *    shooting
+ *    enemies
+ *  floor/roof texture
+ * */
 
 public class Main implements Drawing {
 
@@ -22,9 +37,9 @@ public class Main implements Drawing {
             {1, 1, 1, 1, 1, 1, 1, 1},
             {1, 0, 0, 0, 0, 0, 0, 1},
             {1, 0, 0, 0, 0, 0, 0, 1},
+            {1, 0, 0, 1, 1, 1, 0, 1},
+            {1, 0, 0, 1, 0, 0, 0, 1},
             {1, 0, 0, 1, 1, 0, 0, 1},
-            {1, 0, 0, 1, 1, 0, 0, 1},
-            {1, 0, 0, 0, 0, 0, 0, 1},
             {1, 0, 0, 0, 0, 0, 0, 1},
             {1, 1, 1, 1, 1, 1, 1, 1},
     };
@@ -33,25 +48,34 @@ public class Main implements Drawing {
     int mapSize = 512;
 
     Player player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
-
-    @GadgetDouble(max = 10)
     double speed = 2;
 
-    int limit = 0;
+    boolean twoD = false;
 
+    @GadgetInteger
+    int rayz = 60;
+
+    @GadgetDoubleLogarithmic(min = 0.0001, max = 0.01)
+    double dAngle = 0.005;
+
+    int limit = 0;
     public void draw(View view) {
         DrawingUtils.clear(view, Color.gray(0.125));
 
-//        drawMap(view);
         player.update();
-        drawRejz(view);
 
-//        view.setFill(Color.RED);
-//        view.setStroke(Color.RED);
-//        view.setLineWidth(5);
+        if (twoD) {
+            drawMap(view);
+        } else {
+            view.setFill(Color.RED);
+            view.setStroke(Color.RED);
+            view.setLineWidth(5);
 
-//        view.strokeLine(player.p, player.p.add(Vector.vec(10,  0).rotate(player.angle)));
-//        view.fillCircleCentered(player.p, 5);
+            view.strokeLine(player.p, player.p.add(Vector.vec(10,  0).rotate(player.angle)));
+            view.fillCircleCentered(player.p, 5);
+        }
+        rejz(view);
+
     }
 
 
@@ -86,22 +110,23 @@ public class Main implements Drawing {
         view.stateRestore();
     }
 
-    public void drawRejz(View view) {
-        view.setStroke(Color.CORNFLOWERBLUE);
-
+    public void rejz(View view) {
         view.stateStore();
 
+        view.setStroke(Color.CORNFLOWERBLUE);
         view.setTransformation(Transformation.translation(Vector.vec(-mapSize/2, -mapSize/2)));
 
         Vector vHit, hHit;
+//
+//        int rajz = 100;
+//        double dAngle = 0.001;
 
-        double angle = player.angle - 0.06;
-        double dAngle = 0.06 / 30;
+        double angle = player.angle - (dAngle * rayz / 2);
 
         if (angle >  1) angle %= 1;
         if (angle <  0) angle += 1;
 
-        for (int i = 0; i < 61; i++) {
+        for (int i = 0; i < rayz; i++) {
             vHit = vHit(angle);
             hHit = hHit(angle);
 
@@ -109,25 +134,27 @@ public class Main implements Drawing {
             double vDist = vHit.distanceTo(player.p);
             double dist = Math.min(vDist, hDist);
 
-//            Vector ray = hDist < vDist ? hHit : vHit;
-//            view.setStroke(Color.ORANGE);
-//            view.strokeLine(player.p, ray);
+            if (twoD) {
+                Vector ray = hDist < vDist ? hHit : vHit;
+                view.setStroke(Color.ORANGE);
+                view.strokeLine(player.p, ray);
+            } else {
+                double wallH = mapSize * 15 / dist;
+                double x = i*10-50; // x pos of wall
 
-            double wallH = mapSize * 15 / dist;
-            double x = i*10-50;
+                Vector wallBottom = Vector.vec(x, -wallH + 300);
+                Vector wallTop = Vector.vec(x, wallH + 300);
 
-            Vector wallBottom = Vector.vec(x, -wallH + 300);
-            Vector wallTop = Vector.vec(x, wallH + 300);
+                view.setLineWidth(10);
+                view.setStroke(Color.hsb(0, 1, dist == vDist ? 1 : 0.7));
+                view.strokeLine(wallBottom, wallTop);
 
-            view.setLineWidth(10);
-            view.setStroke(Color.hsb(0, 1, dist == vDist ? 1 : 0.7));
-            view.strokeLine(wallBottom, wallTop);
+                view.setStroke(Color.gray(0.1));
+                view.strokeLine(wallBottom, Vector.vec(x, -50));
 
-            view.setStroke(Color.gray(0.1));
-            view.strokeLine(wallBottom, Vector.vec(x, 0));
-
-            view.setStroke(Color.hsb(260, 1, 0.2));
-            view.strokeLine(wallTop, Vector.vec(x, 600));
+                view.setStroke(Color.hsb(260, 1, 0.2));
+                view.strokeLine(wallTop, Vector.vec(x, 600));
+            }
 
             angle += dAngle;
             if (angle >  1) angle %= 1;
@@ -140,11 +167,9 @@ public class Main implements Drawing {
         double xOffset, yOffset, rayX, rayY;
 
         double tan = Numeric.tanT(angle);
-
         double mod64 = Numeric.mod(player.p.x, gridSize);
 
         boolean right = false;
-
         if (angle < 0.25 || angle > 0.75) { // looking right
             right = true;
             rayX = gridSize - mod64;
@@ -217,7 +242,7 @@ public class Main implements Drawing {
     public static void main(String[] args) {
         Options options = new Options();
 
-        options.constructGui = false;
+        options.constructGui = true;
         options.hideMouseCursor = true;
         options.drawingSize = new Vector(600, 600);
         options.resizable = true;
@@ -249,6 +274,11 @@ public class Main implements Drawing {
             player.toRotate = state.keyPressed(KeyCode.D) ? -1 : 0;
 //            player.rotate(false);
         }
+
+        if (event.isKeyPress(KeyCode.C)) {
+            twoD = !twoD;
+        }
+
     }
 }
 
