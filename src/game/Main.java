@@ -22,35 +22,33 @@ import mars.utils.Numeric;
 
 /*
  * TODO
- *  fix:
- *  textures
  *  walking animation (sin/cos screen offset?)
  *  particles:
  *    shooting
  *    enemies
- *  floor/roof texture
+ *  texture?
  * */
 
 public class Main implements Drawing {
 
 // /*
      int[][] map = {
-            {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 2, 0, 2, 0, 2, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
-            {1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+            {1,0,0,0,2,0,0,1,0,2,0,0,0,0,0,1},
+            {1,0,0,0,1,0,0,1,0,1,0,1,2,1,1,1},
+            {1,0,0,0,1,1,1,1,0,1,0,1,0,0,0,1},
+            {1,1,2,1,1,0,0,0,0,1,0,1,0,0,0,1},
+            {1,0,0,0,0,0,0,0,0,1,0,1,1,2,1,1},
+            {1,2,1,0,0,0,1,1,1,1,1,1,0,0,0,1},
+            {1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,1},
+            {1,0,1,0,0,0,2,0,2,2,0,1,0,0,0,1},
+            {1,0,1,0,0,0,1,0,2,2,0,1,0,0,0,1},
+            {1,0,1,0,0,0,1,0,0,0,0,2,0,0,0,1},
+            {1,0,1,0,0,0,1,1,1,1,1,1,0,0,0,1},
+            {1,0,1,0,0,0,0,0,1,0,0,1,0,0,0,1},
+            {1,0,1,0,0,0,0,0,2,0,0,2,0,0,0,1},
+            {1,0,2,0,0,0,0,0,1,0,0,1,0,0,0,1},
+            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     };
 // */
 
@@ -127,7 +125,9 @@ public class Main implements Drawing {
 
     long frameCur, framePrev, frameDiff;
     @Override
-    public void init(View view) { framePrev = System.currentTimeMillis(); }
+    public void init(View view) {
+        framePrev = System.currentTimeMillis();
+    }
 
     public void draw(View view) {
         frameCur = System.currentTimeMillis();
@@ -143,11 +143,17 @@ public class Main implements Drawing {
         player.canForward = !collidesWithWallFront();
         player.canBackwards = !collidesWithWallBack();
 
+        view.stateStore();
+        view.addTransformation(Transformation.translation(mapStart));
+        view.addTransformation(Transformation.scaling(0.5));
+
         if (twoD) {
             drawMap(view);
         }
-
         rejz(view);
+
+
+        view.stateRestore();
 
         view.setFill(Color.WHITE);
         view.fillText("PRESS [C] TO TOGGLE PERSPECTIVE", Vector.vec(-300, -300));
@@ -158,8 +164,8 @@ public class Main implements Drawing {
         view.setStroke(Color.GRAY);
         view.setLineWidth(1);
 
-        view.stateStore();
-        view.setTransformation(Transformation.translation(mapStart));
+//        view.stateStore();
+//        view.addTransformation(Transformation.translation(mapStart));
 
         for (int i = 0; i < nGrid; i++) {
             for (int j = 0; j < nGrid; j++) {
@@ -183,12 +189,11 @@ public class Main implements Drawing {
             }
         }
 
-        view.stateRestore();
+//        view.stateRestore();
     }
 
     public void rejz(View view) {
-        view.stateStore();
-        view.setTransformation(Transformation.translation(mapStart));
+
 
         Vector vHit, hHit;
 
@@ -211,7 +216,8 @@ public class Main implements Drawing {
                 view.setStroke(Color.ORANGE);
                 view.strokeLine(player.p, ray);
             } else {
-
+                view.stateStore();
+                view.addTransformation(Transformation.scaling(2));
                 // angle between player and ray
                 double PRangle = angle - player.angle;
                 if (PRangle >  1) PRangle %= 1;
@@ -228,15 +234,16 @@ public class Main implements Drawing {
 
                 Vector wallBottom = Vector.vec(x, -wallH + 300);
                 Vector wallTop = Vector.vec(x, wallH + 300);
+//                Vector wallTop = Vector.vec(x + 10, wallH + 300);
 
-                double hue = 0;
                 Vector im = toMapCoords(ray);
-                int mapX = (int) im.x;// + (player.lookingRight ? 0 : 1);
-                int mapY = (int) im.y;// + (player.lookingUp ? 0 : 1);
+                int mapX = (int) im.x;
+                int mapY = (int) im.y;
 
                 mapX -= (!lookingRight(angle) && vDist > hDist) ? 1 : 0;
                 mapY -= (!lookingUp(angle)    && vDist < hDist) ? 1 : 0;
 
+                double hue = 0;
                 if (inMap(mapX, mapY) && map[mapY][mapX] == 2) {
                     hue = 240;
                 }
@@ -245,11 +252,14 @@ public class Main implements Drawing {
                 view.setStroke(Color.hsb(hue, 1, dist == vDist ? 1 : 0.7));
                 view.strokeLine(wallBottom, wallTop);
 
+
                 view.setStroke(Color.gray(0.1));
                 view.strokeLine(wallBottom, Vector.vec(x, -50));
 
                 view.setStroke(Color.hsb(260, 1, 0.2));
                 view.strokeLine(wallTop, Vector.vec(x, 600));
+
+                view.stateRestore();
             }
 
             angle -= dAngle;
@@ -257,7 +267,7 @@ public class Main implements Drawing {
             if (angle <  0) angle += 1;
         }
 
-        view.stateRestore();
+
     }
 
     public boolean lookingUp(double angle) {
