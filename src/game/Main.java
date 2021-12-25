@@ -1,6 +1,5 @@
 package game;
 
-import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import mars.drawingx.application.DrawingApplication;
@@ -9,16 +8,15 @@ import mars.drawingx.application.parameters.WindowState;
 import mars.drawingx.drawing.Drawing;
 import mars.drawingx.drawing.DrawingUtils;
 import mars.drawingx.drawing.View;
-import mars.drawingx.gadgets.annotations.GadgetDouble;
 import mars.drawingx.gadgets.annotations.GadgetDoubleLogarithmic;
-import mars.drawingx.gadgets.annotations.GadgetInteger;
 import mars.geometry.Transformation;
 import mars.geometry.Vector;
 import mars.input.InputEvent;
 import mars.input.InputState;
 import mars.time.Profiler;
-import mars.time.ProfilerPool;
 import mars.utils.Numeric;
+
+import java.util.LinkedList;
 
 /*
  * TODO
@@ -27,12 +25,13 @@ import mars.utils.Numeric;
  *    shooting
  *    enemies
  *  texture?
+ *  add lookingX to hhit and vhit
  * */
 
 public class Main implements Drawing {
 
 // /*
-     int[][] map = {
+     static int[][] map = {
             {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
             {1,0,0,0,2,0,0,1,0,2,0,0,0,0,0,1},
             {1,0,0,0,1,0,0,1,0,1,0,1,2,1,1,1},
@@ -63,8 +62,8 @@ public class Main implements Drawing {
 //            {1, 1, 1, 1, 1, 1, 1, 1},
 //    };
 
-    int nGrid = map.length;
-    int gridSize = 64;
+    static int nGrid = map.length;
+    static int gridSize = 64;
     int mapSize = 64 * nGrid;
 
     Vector mapStart = Vector.vec(-256, -256);
@@ -85,8 +84,6 @@ public class Main implements Drawing {
         boolean lookingRight;
 
         boolean signalE;
-
-        double frameDiff;
 
         public Player(Vector p) {
             this.p = p;
@@ -112,32 +109,61 @@ public class Main implements Drawing {
         }
     }
 
+    private static class Ball {
+        Vector p;
+        Vector v;
+        double speed = 10;
+        double angle;
+        boolean alive;
+
+        public Ball(Vector p, double angle) {
+            this.angle = angle;
+            this.v = Vector.polar(speed, angle);
+            this.p = p;
+            alive = true;
+        }
+
+        public void update() {
+            p = p.add(v.mul(frameDiff));
+        }
+
+        public boolean dead() {
+            return !alive;
+        }
+    }
+
     Player player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
     boolean twoD = false;
 
-    @GadgetInteger
+//    @GadgetInteger
     int rayz = 60;
 
-    @GadgetDoubleLogarithmic(min = 0.0001, max = 0.01)
+//    @GadgetDoubleLogarithmic(min = 0.0001, max = 0.01)
     double dAngle = 0.005;
+
+    double halfFov = rayz / 2.0 * dAngle;
 
     Profiler profiler = new Profiler("profiler");
 
-    long frameCur, framePrev, frameDiff;
+    long frameCur, framePrev;
+    public static double frameDiff;
+
+    LinkedList<Ball> balls;
+
     @Override
     public void init(View view) {
         framePrev = System.currentTimeMillis();
+        balls = new LinkedList<>();
     }
 
     public void draw(View view) {
+        DrawingUtils.clear(view, Color.gray(0.125));
+
+        // more frames = slower (smaller diff), less frames = faster (bigger diff)
         frameCur = System.currentTimeMillis();
         frameDiff = frameCur - framePrev;
         framePrev = frameCur;
-
-        // more frames = slower (smaller diff), less frames = faster (bigger diff)
-        player.frameDiff = frameDiff * 0.08;
-
-        DrawingUtils.clear(view, Color.gray(0.125));
+        frameDiff = frameDiff * 0.08;
 
         player.update();
         player.canForward = !collidesWithWallFront();
@@ -145,13 +171,66 @@ public class Main implements Drawing {
 
         view.stateStore();
         view.addTransformation(Transformation.translation(mapStart));
-        view.addTransformation(Transformation.scaling(0.5));
+
+        // updates, draws andremoves dead balls
+        Vector mapXY;
+        int mapX, mapY;
+        view.setFill(Color.LIGHTYELLOW);
+        for (Ball ball : balls) {
+            ball.update();
+
+            mapXY = toMapCoords(ball.p);
+            mapX = (int) mapXY.x;
+            mapY = (int) mapXY.y;
+            if (map[mapY][mapX] > 0) {
+                ball.alive = false;
+                continue;
+            }
+
+            if (twoD) {
+                view.stateStore();
+                view.addTransformation(Transformation.translation(player.p.inverse())); // follow player
+                view.addTransformation(Transformation.translation(mapStart.inverse()));
+                view.fillCircleCentered(ball.p, 5);
+                view.stateRestore();
+            }
+        }
+
+        balls.removeIf(Ball::dead);
 
         if (twoD) {
+            view.stateStore();
+            view.addTransformation(Transformation.translation(player.p.inverse())); // follow player
+            view.addTransformation(Transformation.translation(mapStart.inverse()));
             drawMap(view);
-        }
-        rejz(view);
 
+            view.stateRestore();
+            rejz(view);
+        } else {
+            rejz(view);
+            double PBangle;
+            double fov = (rayz / 2.0) * dAngle;
+            double r = 500;
+            for (Ball ball : balls) {
+                // TODO fix angle
+                PBangle = player.angle - ball.angle;
+
+                if (Math.abs(PBangle) < halfFov) {
+                    double dist = ball.p.distanceTo(player.p);
+                    double ballX = Numeric.sinT(PBangle) * dist * scale;
+                    Vector pos = Vector.vec(ballX, 40);
+
+                    r = r / dist;
+
+                    view.stateStore();
+
+                    view.addTransformation(Transformation.translation(mapStart.inverse()));
+                    view.fillCircleCentered(pos, r);
+
+                    view.stateRestore();
+                }
+            }
+        }
 
         view.stateRestore();
 
@@ -159,13 +238,12 @@ public class Main implements Drawing {
         view.fillText("PRESS [C] TO TOGGLE PERSPECTIVE", Vector.vec(-300, -300));
     }
 
-    public void drawMap(View view) {
+    @GadgetDoubleLogarithmic(min = 0.004, max = 2)
+    double scale = 0.004;
 
+    public void drawMap(View view) {
         view.setStroke(Color.GRAY);
         view.setLineWidth(1);
-
-//        view.stateStore();
-//        view.addTransformation(Transformation.translation(mapStart));
 
         for (int i = 0; i < nGrid; i++) {
             for (int j = 0; j < nGrid; j++) {
@@ -174,27 +252,24 @@ public class Main implements Drawing {
 
                 if (map[i][j] > 0) {
                     view.fillRect(
-                            Vector.vec(j * gridSize, i * gridSize),
-                            Vector.vec(gridSize, gridSize)
+                        Vector.vec(j * gridSize, i * gridSize),
+                        Vector.vec(gridSize, gridSize)
                     );
                 }
 
                 view.strokeRect(
-                        Vector.vec(j * gridSize, i * gridSize),
-                        Vector.vec(gridSize, gridSize)
+                    Vector.vec(j * gridSize, i * gridSize),
+                    Vector.vec(gridSize, gridSize)
                 );
                 view.setFill(Color.RED);
                 view.fillText(String.format("%d,%d", j, i), Vector.vec(j * gridSize, i * gridSize));
                 view.setFill(Color.WHITE);
             }
         }
-
-//        view.stateRestore();
     }
 
+    // calculate and draw rays if 2d view
     public void rejz(View view) {
-
-
         Vector vHit, hHit;
 
         double angle = player.angle + (dAngle * rayz / 2);
@@ -213,11 +288,16 @@ public class Main implements Drawing {
             Vector ray = hDist < vDist ? hHit : vHit;
 
             if (twoD) {
+                view.stateStore();
+
+                view.addTransformation(Transformation.translation(player.p.inverse()));
+                view.addTransformation(Transformation.translation(mapStart.inverse()));
+
                 view.setStroke(Color.ORANGE);
                 view.strokeLine(player.p, ray);
+
+                view.stateRestore();
             } else {
-                view.stateStore();
-                view.addTransformation(Transformation.scaling(2));
                 // angle between player and ray
                 double PRangle = angle - player.angle;
                 if (PRangle >  1) PRangle %= 1;
@@ -226,7 +306,7 @@ public class Main implements Drawing {
                 // side rays are longer -> walls left and right are smaller
                 // this scales them to be the same as the distance from
                 // player to wall (middle ray)
-                // doesnt fix short rays?
+                // side rays still a bit weird but looks way better
                 double scale = Numeric.cosT(PRangle);
 
                 double wallH = 512 * 15 / (dist * scale);
@@ -234,7 +314,6 @@ public class Main implements Drawing {
 
                 Vector wallBottom = Vector.vec(x, -wallH + 300);
                 Vector wallTop = Vector.vec(x, wallH + 300);
-//                Vector wallTop = Vector.vec(x + 10, wallH + 300);
 
                 Vector im = toMapCoords(ray);
                 int mapX = (int) im.x;
@@ -252,22 +331,18 @@ public class Main implements Drawing {
                 view.setStroke(Color.hsb(hue, 1, dist == vDist ? 1 : 0.7));
                 view.strokeLine(wallBottom, wallTop);
 
-
                 view.setStroke(Color.gray(0.1));
                 view.strokeLine(wallBottom, Vector.vec(x, -50));
 
                 view.setStroke(Color.hsb(260, 1, 0.2));
                 view.strokeLine(wallTop, Vector.vec(x, 600));
-
-                view.stateRestore();
             }
 
+            // next ray
             angle -= dAngle;
             if (angle >  1) angle %= 1;
             if (angle <  0) angle += 1;
         }
-
-
     }
 
     public boolean lookingUp(double angle) {
@@ -278,7 +353,7 @@ public class Main implements Drawing {
         return angle < 0.25 || angle > 0.75;
     }
 
-    private Vector toMapCoords(Vector v) {
+    private static Vector toMapCoords(Vector v) {
         return Vector.vec((int) (v.x / gridSize), (int) (v.y / gridSize));
     }
 
@@ -434,5 +509,9 @@ public class Main implements Drawing {
         }
 
         player.signalE = event.isKeyPress(KeyCode.E);
+
+        if (event.isKeyPress(KeyCode.SPACE)) {
+            balls.addLast(new Ball(player.p, player.angle));
+        }
     }
 }
