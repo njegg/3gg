@@ -123,6 +123,14 @@ public class Main implements Drawing {
             alive = true;
         }
 
+        public Ball(Vector p, double angle, double speed) {
+            this.speed = speed;
+            this.angle = angle;
+            this.v = Vector.polar(speed, angle);
+            this.p = p;
+            alive = true;
+        }
+
         public void update() {
             p = p.add(v.mul(frameDiff));
         }
@@ -132,7 +140,7 @@ public class Main implements Drawing {
         }
     }
 
-    Player player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
+    Player player;
     boolean twoD = false;
 
 //    @GadgetInteger
@@ -154,7 +162,12 @@ public class Main implements Drawing {
     public void init(View view) {
         framePrev = System.currentTimeMillis();
         balls = new LinkedList<>();
+        player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
+        testBall = new Ball(player.p, player.angle, 0);
+        balls.add(testBall);
     }
+
+    Ball testBall;
 
     public void draw(View view) {
         DrawingUtils.clear(view, Color.gray(0.125));
@@ -176,6 +189,7 @@ public class Main implements Drawing {
         Vector mapXY;
         int mapX, mapY;
         view.setFill(Color.LIGHTYELLOW);
+
         for (Ball ball : balls) {
             ball.update();
 
@@ -210,7 +224,8 @@ public class Main implements Drawing {
             rejz(view);
             double PBangle;
             double fov = (rayz / 2.0) * dAngle;
-            double r = 500;
+            double r = 1000;
+
             for (Ball ball : balls) {
                 // TODO fix angle
                 PBangle = player.angle - ball.angle;
@@ -230,6 +245,9 @@ public class Main implements Drawing {
                     view.stateRestore();
                 }
             }
+
+
+
         }
 
         view.stateRestore();
