@@ -18,19 +18,9 @@ import mars.utils.Numeric;
 
 import java.util.LinkedList;
 
-/*
- * TODO
- *  walking animation (sin/cos screen offset?)
- *  particles:
- *    shooting
- *    enemies
- *  texture?
- *  add lookingX to hhit and vhit
- * */
 
 public class Main implements Drawing {
 
-// /*
      static int[][] map = {
             {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
             {1,0,0,0,2,0,0,1,0,2,0,0,0,0,0,1},
@@ -49,7 +39,6 @@ public class Main implements Drawing {
             {1,0,2,0,0,0,0,0,1,0,0,1,0,0,0,1},
             {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     };
-// */
 
 //    int[][] map = {
 //            {1, 1, 1, 1, 1, 1, 1, 1},
@@ -108,6 +97,7 @@ public class Main implements Drawing {
             }
         }
     }
+
 
     private static class Ball {
         Vector p;
@@ -222,32 +212,20 @@ public class Main implements Drawing {
             rejz(view);
         } else {
             rejz(view);
-            double PBangle;
-            double fov = (rayz / 2.0) * dAngle;
-            double r = 1000;
 
-            for (Ball ball : balls) {
-                // TODO fix angle
-                PBangle = player.angle - ball.angle;
-
-                if (Math.abs(PBangle) < halfFov) {
-                    double dist = ball.p.distanceTo(player.p);
-                    double ballX = Numeric.sinT(PBangle) * dist * scale;
-                    Vector pos = Vector.vec(ballX, 40);
-
-                    r = r / dist;
-
-                    view.stateStore();
-
-                    view.addTransformation(Transformation.translation(mapStart.inverse()));
-                    view.fillCircleCentered(pos, r);
-
-                    view.stateRestore();
-                }
-            }
-
-
-
+//            for (Ball ball : balls) {
+//
+//                Vector BtwPaB = (ball.p.sub(player.p)); // between player and ball
+//                double angleDiff = player.angle - BtwPaB.angle();
+//                angleDiff /= halfFov;
+//                angleDiff *= 1.0 * rayz / 2;
+//
+//                System.out.println(angleDiff);
+//
+//                if (Math.abs(angleDiff) > halfFov) {
+//                    view.fillCircleCentered(Vector.vec(10*angleDiff, 20), 5);
+//                }
+//            }
         }
 
         view.stateRestore();
