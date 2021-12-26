@@ -8,29 +8,15 @@ import mars.drawingx.application.parameters.WindowState;
 import mars.drawingx.drawing.Drawing;
 import mars.drawingx.drawing.DrawingUtils;
 import mars.drawingx.drawing.View;
-import mars.drawingx.gadgets.annotations.GadgetDoubleLogarithmic;
 import mars.geometry.Transformation;
 import mars.geometry.Vector;
 import mars.input.InputEvent;
 import mars.input.InputState;
-import mars.time.Profiler;
 import mars.utils.Numeric;
 
-import java.util.LinkedList;
-
-/*
- * TODO
- *  walking animation (sin/cos screen offset?)
- *  particles:
- *    shooting
- *    enemies
- *  texture?
- *  add lookingX to hhit and vhit
- * */
 
 public class Main implements Drawing {
 
-// /*
      static int[][] map = {
             {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
             {1,0,0,0,2,0,0,1,0,2,0,0,0,0,0,1},
@@ -49,23 +35,9 @@ public class Main implements Drawing {
             {1,0,2,0,0,0,0,0,1,0,0,1,0,0,0,1},
             {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     };
-// */
-
-//    int[][] map = {
-//            {1, 1, 1, 1, 1, 1, 1, 1},
-//            {1, 0, 0, 1, 0, 1, 0, 1},
-//            {1, 0, 0, 0, 0, 1, 0, 0},
-//            {1, 0, 0, 0, 0, 0, 0, 0},
-//            {1, 0, 1, 1, 2, 1, 1, 0},
-//            {1, 1, 1, 0, 0, 0, 0, 1},
-//            {1, 0, 2, 0, 0, 0, 0, 1},
-//            {1, 1, 1, 1, 1, 1, 1, 1},
-//    };
 
     static int nGrid = map.length;
     static int gridSize = 64;
-    int mapSize = 64 * nGrid;
-
     Vector mapStart = Vector.vec(-256, -256);
 
     static class Player {
@@ -109,65 +81,21 @@ public class Main implements Drawing {
         }
     }
 
-    private static class Ball {
-        Vector p;
-        Vector v;
-        double speed = 10;
-        double angle;
-        boolean alive;
-
-        public Ball(Vector p, double angle) {
-            this.angle = angle;
-            this.v = Vector.polar(speed, angle);
-            this.p = p;
-            alive = true;
-        }
-
-        public Ball(Vector p, double angle, double speed) {
-            this.speed = speed;
-            this.angle = angle;
-            this.v = Vector.polar(speed, angle);
-            this.p = p;
-            alive = true;
-        }
-
-        public void update() {
-            p = p.add(v.mul(frameDiff));
-        }
-
-        public boolean dead() {
-            return !alive;
-        }
-    }
 
     Player player;
     boolean twoD = false;
 
-//    @GadgetInteger
     int rayz = 60;
-
-//    @GadgetDoubleLogarithmic(min = 0.0001, max = 0.01)
     double dAngle = 0.005;
-
-    double halfFov = rayz / 2.0 * dAngle;
-
-    Profiler profiler = new Profiler("profiler");
 
     long frameCur, framePrev;
     public static double frameDiff;
 
-    LinkedList<Ball> balls;
-
     @Override
     public void init(View view) {
         framePrev = System.currentTimeMillis();
-        balls = new LinkedList<>();
         player = new Player(Vector.vec(2 * gridSize, 2 * gridSize));
-        testBall = new Ball(player.p, player.angle, 0);
-        balls.add(testBall);
     }
-
-    Ball testBall;
 
     public void draw(View view) {
         DrawingUtils.clear(view, Color.gray(0.125));
@@ -185,79 +113,24 @@ public class Main implements Drawing {
         view.stateStore();
         view.addTransformation(Transformation.translation(mapStart));
 
-        // updates, draws andremoves dead balls
-        Vector mapXY;
-        int mapX, mapY;
-        view.setFill(Color.LIGHTYELLOW);
-
-        for (Ball ball : balls) {
-            ball.update();
-
-            mapXY = toMapCoords(ball.p);
-            mapX = (int) mapXY.x;
-            mapY = (int) mapXY.y;
-            if (map[mapY][mapX] > 0) {
-                ball.alive = false;
-                continue;
-            }
-
-            if (twoD) {
-                view.stateStore();
-                view.addTransformation(Transformation.translation(player.p.inverse())); // follow player
-                view.addTransformation(Transformation.translation(mapStart.inverse()));
-                view.fillCircleCentered(ball.p, 5);
-                view.stateRestore();
-            }
-        }
-
-        balls.removeIf(Ball::dead);
-
         if (twoD) {
             view.stateStore();
+
             view.addTransformation(Transformation.translation(player.p.inverse())); // follow player
             view.addTransformation(Transformation.translation(mapStart.inverse()));
+
             drawMap(view);
 
             view.stateRestore();
-            rejz(view);
-        } else {
-            rejz(view);
-            double PBangle;
-            double fov = (rayz / 2.0) * dAngle;
-            double r = 1000;
-
-            for (Ball ball : balls) {
-                // TODO fix angle
-                PBangle = player.angle - ball.angle;
-
-                if (Math.abs(PBangle) < halfFov) {
-                    double dist = ball.p.distanceTo(player.p);
-                    double ballX = Numeric.sinT(PBangle) * dist * scale;
-                    Vector pos = Vector.vec(ballX, 40);
-
-                    r = r / dist;
-
-                    view.stateStore();
-
-                    view.addTransformation(Transformation.translation(mapStart.inverse()));
-                    view.fillCircleCentered(pos, r);
-
-                    view.stateRestore();
-                }
-            }
-
-
-
         }
+
+        rejz(view);
 
         view.stateRestore();
 
         view.setFill(Color.WHITE);
         view.fillText("PRESS [C] TO TOGGLE PERSPECTIVE", Vector.vec(-300, -300));
     }
-
-    @GadgetDoubleLogarithmic(min = 0.004, max = 2)
-    double scale = 0.004;
 
     public void drawMap(View view) {
         view.setStroke(Color.GRAY);
@@ -286,8 +159,8 @@ public class Main implements Drawing {
         }
     }
 
-    // calculate and draw rays if 2d view
     public void rejz(View view) {
+        // calculate and draw rays/walls
         Vector vHit, hHit;
 
         double angle = player.angle + (dAngle * rayz / 2);
@@ -384,7 +257,7 @@ public class Main implements Drawing {
         double mod64 = Numeric.mod(player.p.x, gridSize);
 
         boolean right = false;
-        if (angle < 0.25 || angle > 0.75) { // looking right
+        if (lookingRight(angle)) { // looking right
             right = true;
             rayX = gridSize - mod64;
             xOffset = gridSize;
@@ -422,7 +295,7 @@ public class Main implements Drawing {
         double ctan = 1.0 / Numeric.tanT(angle);;
 
         boolean up = false;
-        if (angle < 0.5) {       // looking up
+        if (lookingUp(angle)) {       // looking up
             up = true;
             rayY = gridSize - mod64;
             yOffset = gridSize;
@@ -453,27 +326,27 @@ public class Main implements Drawing {
     }
 
     public boolean collidesWithWallFront() {
-        double colideLength = 20;
+        double collideLength = 20;
         int mapX, mapY;
 
-        Vector collider = player.p.add(Vector.polar(colideLength, player.angle));
+        Vector collider = player.p.add(Vector.polar(collideLength, player.angle));
 
         mapX = (int) (collider.x / gridSize);
         mapY = (int) (collider.y / gridSize);
-        boolean colides = collidesWithWall(mapX, mapY);
+        boolean collides = collidesWithWall(mapX, mapY);
 
         if (inMap(mapX, mapY) && map[mapY][mapX] == 2 && player.signalE) { // open door
             map[mapY][mapX] = 0;
         }
 
-        return colides;
+        return collides;
     }
 
     public boolean collidesWithWallBack() {
-        double colideLength = 20;
+        double collideLength = 20;
         int mapX, mapY;
 
-        Vector collide = player.p.sub(Vector.polar(colideLength, player.angle));
+        Vector collide = player.p.sub(Vector.polar(collideLength, player.angle));
 
         mapX = (int) (collide.x / gridSize);
         mapY = (int) (collide.y / gridSize);
@@ -491,10 +364,10 @@ public class Main implements Drawing {
     public static void main(String[] args) {
         Options options = new Options();
 
-        options.constructGui = true;
+        options.constructGui = false;
         options.hideMouseCursor = true;
         options.drawingSize = new Vector(600, 600);
-        options.resizable = true;
+        options.resizable = false;
         options.initialWindowState = WindowState.NORMAL;
 
         DrawingApplication.launch(options);
@@ -527,9 +400,5 @@ public class Main implements Drawing {
         }
 
         player.signalE = event.isKeyPress(KeyCode.E);
-
-        if (event.isKeyPress(KeyCode.SPACE)) {
-            balls.addLast(new Ball(player.p, player.angle));
-        }
     }
 }
